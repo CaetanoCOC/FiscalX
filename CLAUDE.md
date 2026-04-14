@@ -4,13 +4,17 @@
 
 Sistema profissional de auditoria fiscal em Python com interface Streamlit.
 Lê XMLs de Notas Fiscais Eletrônicas (NFe layout 4.0), valida tributação,
-detecta inconsistências, apura impostos (ICMS, PIS, COFINS, IPI, ISS) e
-gera relatórios de auditoria exportáveis.
+detecta inconsistências, apura impostos (ICMS, PIS, COFINS, IPI, ISS),
+concilia cadastro interno via tabela DE PARA e gera relatórios exportáveis.
 
 **Objetivo:** Portfólio para vagas de Auditor Fiscal / Analista Fiscal.
 Deve impressionar demonstrado ao vivo em entrevista técnica.
 
-**Status:** ✅ Totalmente implementado e funcional.
+**Status:** ✅ Totalmente implementado, publicado no GitHub e no ar no Streamlit Cloud.
+
+**Repositório:** https://github.com/CaetanoCOC/FiscalX
+**App online:** https://fiscalx.streamlit.app
+**LinkedIn autor:** https://www.linkedin.com/in/bcaetano-datascience/
 
 ---
 
@@ -18,15 +22,24 @@ Deve impressionar demonstrado ao vivo em entrevista técnica.
 
 ```
 FiscalX/                          ← raiz do repositório
-├── NFe_ficticio.zip              ← 20 NFes fictícias para demo/teste
+├── .gitignore                    ← exclui notafiscal/, .claude/, data/, .env
+├── requirements.txt              ← dependências para Streamlit Cloud (raiz)
+├── packages.txt                  ← libs de sistema Linux (libxml2, libxslt)
 ├── CLAUDE.md
+├── README_code.txt               ← código do README.md para colar no GitHub
+├── NFe_ficticio.zip              ← 20 NFes fictícias para demo/teste
+├── NFe_depara_teste.zip          ← 5 NFes para testar a Conciliação DE PARA
+├── DEPARA.zip                    ← planilhas de cadastro interno (DE PARA)
+├── nfe_teste_unica.xml           ← 1 NFe isolada para teste rápido (2 erros intencionais)
 └── auditoria_fiscal/             ← aplicação Streamlit
     ├── app.py                    ← ROTEADOR: set_page_config + CSS + sidebar + st.navigation()
     ├── home.py                   ← conteúdo da página Dashboard (chamado pelo app.py)
-    ├── requirements.txt
+    ├── requirements.txt          ← dependências (sem streamlit-aggrid — não usado)
     ├── static/                   ← assets estáticos (logos)
-    │   ├── fiscalx_icon_512.png  ← logo sidebar
-    │   └── fiscalx_icon_1024.png ← favicon
+    │   ├── fiscalx_logo_new.png  ← logo principal (sidebar + favicon)
+    │   ├── fiscalx_logo.png
+    │   ├── fiscalx_icon_512.png
+    │   └── fiscalx_icon_1024.png
     ├── config/
     │   ├── aliquotas_icms.json
     │   ├── aliquotas_iss.json
@@ -40,17 +53,19 @@ FiscalX/                          ← raiz do repositório
     │   ├── motor_validacao.py
     │   ├── apuracao.py
     │   ├── detector_anomalias.py
-    │   └── atualizador_aliquotas.py
+    │   ├── atualizador_aliquotas.py
+    │   └── conciliador_cadastro.py   ← NOVO: validações V13/V14/V15 (DE PARA)
     ├── data/
-    │   ├── uploads/
-    │   ├── processados/
-    │   └── relatorios/
+    │   ├── uploads/.gitkeep
+    │   ├── processados/.gitkeep
+    │   └── relatorios/.gitkeep
     ├── pages/                    ← arquivos de conteúdo PURO (sem set_page_config, sem sidebar)
     │   ├── 01_upload_nfe.py
     │   ├── 02_dashboard_fiscal.py
     │   ├── 03_auditoria_detalhada.py
     │   ├── 04_apuracao_impostos.py
-    │   └── 05_relatorio_exportar.py
+    │   ├── 05_relatorio_exportar.py
+    │   └── 06_de_para.py             ← NOVO: Conciliação DE PARA
     ├── utils/
     │   ├── constants.py          ← tokens de cor e constantes globais
     │   ├── theme.py              ← css_global() + plotly_layout()
@@ -98,10 +113,11 @@ plotly>=5.18.0
 reportlab>=4.1.0
 httpx>=0.27.0
 pydantic>=2.0.0
-streamlit-aggrid>=0.3.4
 ```
 
-Ambiente Python: `notafiscal/` (Conda, na raiz do repo).
+**Nota:** `streamlit-aggrid` foi removido — não é usado em nenhum arquivo do projeto.
+
+Ambiente Python local: `notafiscal/` (Conda, na raiz do repo).
 Python em: `notafiscal/python.exe` (NÃO `notafiscal/Scripts/python.exe`).
 
 ---
@@ -140,6 +156,24 @@ Suporta todos os grupos ICMS: ICMS00–ICMS90, ICMSSN101–ICMSSN900.
 Retorno: `validar_nfe(nfe_df) -> pd.DataFrame` com colunas:
 `chNFe, nNF, item, codigo_validacao, descricao, valor_declarado, valor_esperado, divergencia, severidade`
 
+### conciliador_cadastro.py — NOVO
+Cruza dados das NFes com tabelas DE PARA fornecidas pelo usuário (CSV/XLSX/ZIP).
+
+Validações produzidas:
+- **V13** — Fornecedor na NFe ausente do DE PARA (ALERTA) ou inativo no cadastro (CRÍTICO)
+- **V14** — NCM do item diverge do NCM esperado no cadastro interno (CRÍTICO)
+- **V15** — CFOP do item diverge do CFOP esperado no cadastro interno (CRÍTICO)
+
+Funções principais:
+- `conciliar(df_notas, df_itens, df_de_para_forn, df_de_para_prod) -> pd.DataFrame`
+- `validar_fornecedores(df_notas, df_de_para) -> pd.DataFrame`
+- `validar_produtos(df_itens, df_de_para) -> pd.DataFrame`
+- `gerar_template_fornecedores() -> pd.DataFrame`
+- `gerar_template_produtos() -> pd.DataFrame`
+
+Colunas do DE PARA de Fornecedores: `cnpj_fornecedor, cod_interno, nome_interno, ativo`
+Colunas do DE PARA de Produtos: `cnpj_fornecedor, cProd, cod_interno, desc_interna, ncm_esperado, cfop_esperado`
+
 ### atualizador_aliquotas.py
 - ICMS: tabela CONFAZ (4% importados, 7% Sul/SE→N/NE/CO, 12% demais)
 - ISS: JSON por código IBGE (100+ municípios), padrão 5% com flag "estimativa"
@@ -168,6 +202,7 @@ fornecedor >40%), A07 (emissão fora horário comercial).
 - **03_auditoria_detalhada.py** — Tabela HTML com ícone de severidade 🔴🟡🔵, scroll interno, filtros, anomalias
 - **04_apuracao_impostos.py** — Cards débito/crédito/saldo ICMS+PIS+COFINS, gráfico comparativo, detalhamento HTML, simulação DARF
 - **05_relatorio_exportar.py** — Preview do relatório, exportação Excel (.xlsx) e CSV
+- **06_de_para.py** — NOVO: upload ZIP/CSV/XLSX do cadastro interno, preview nas abas, botão "Executar Conciliação", tabela de divergências, exportação
 
 ---
 
@@ -222,11 +257,25 @@ e na sidebar para criar visual unificado e coeso.
 | nfe_05_pis_cofins_errado.xml | PIS 0,65% para Lucro Real | V08 ALERTA |
 
 ### NFe_ficticio.zip — demo completa (20 NFes, raiz do repo)
-20 notas espalhadas de Jan/2024 a Jul/2024, cobrindo:
-- 8 emitentes de diferentes UFs (SP, MG, RJ, PR, BA, GO, SC, PE)
-- Operações internas e interestaduais
-- Regimes Lucro Real (CRT=3) e Simples Nacional (CRT=1)
-- Erros intencionais: V01, V03 (×2), V06, V08 (×2) — para popular os gráficos de auditoria
+20 notas de Jan/2024 a Jul/2024, 8 emitentes de diferentes UFs.
+Erros intencionais: V01, V03 (×2), V06, V08 (×2).
+
+### NFe_depara_teste.zip — teste do DE PARA (5 NFes, raiz do repo)
+| Arquivo | Emitente | Erro intencional |
+|---------|---------|-----------------|
+| nfe_depara_01_ok.xml | Distribuidora ABC (33333333000155) | Nenhum — fornecedor mapeado e ativo |
+| nfe_depara_02_ncm_errado.xml | Metalúrgica XYZ (44444444000177) | NCM 39269090 vs esperado 73181500 → V14 |
+| nfe_depara_03_forn_nao_mapeado.xml | Comércio Pinheiros (55555555000199) | CNPJ ausente do DE PARA → V13 ALERTA |
+| nfe_depara_04_forn_inativo.xml | Peças do Sul (66666666000111) | Fornecedor inativo no DE PARA → V13 CRÍTICO |
+| nfe_depara_05_cfop_errado.xml | Metalúrgica XYZ (44444444000177) | CFOP 6102 vs esperado 1556 → V15 |
+
+### DEPARA.zip — planilhas de cadastro interno (raiz do repo)
+- `de_para_fornecedores.xlsx` — 3 fornecedores (1 inativo)
+- `de_para_produtos.xlsx` — 3 produtos com NCM/CFOP esperados
+
+### nfe_teste_unica.xml — teste rápido (1 NFe, raiz do repo)
+Emitente: Metalúrgica XYZ (44444444000177), MG→AM, 2 itens.
+Erros: V03 CRÍTICO (ICMS 18% em interestadual) + V08 ALERTA (PIS/COFINS cumulativo em Lucro Real).
 
 ---
 
@@ -252,6 +301,8 @@ e na sidebar para criar visual unificado e coeso.
 - **`st.navigation(position="hidden")`** desabilita completamente o nav automático, evitando flash na troca de páginas. Sidebar definida antes de `pg.run()` é compartilhada automaticamente.
 - **Vigência das alíquotas nos JSONs** — o campo `"vigencia"` nos arquivos `aliquotas_icms.json`, `aliquotas_iss.json` e `ncm_aliquotas.json` é hardcoded. Atualizar manualmente quando as tabelas tributárias mudarem.
 - **Cache de módulo** — `atualizador_aliquotas.py` usa variáveis de módulo (`_cache_icms` etc.) como cache. Mudanças nos JSONs só aparecem após reiniciar o servidor Streamlit.
+- **Upload DE PARA** — a página `06_de_para.py` aceita ZIP, CSV e XLSX com `accept_multiple_files=True`. A identificação do tipo (fornecedor vs produto) é feita pelo nome do arquivo + colunas presentes. O uploader é único no topo — as abas são só visualização.
+- **streamlit-aggrid removido** — estava no requirements original mas nunca foi usado. Remover evita falha de instalação no Streamlit Cloud.
 
 ## Boas Práticas
 
@@ -259,12 +310,12 @@ e na sidebar para criar visual unificado e coeso.
 - Docstrings em português com exemplo de uso
 - `@st.cache_data` para XMLs já processados
 - `st.session_state` para estado entre páginas
-- `data/` no `.gitignore` (nunca commitar XMLs reais)
+- `data/` no `.gitignore` (nunca commitar XMLs reais); `.gitkeep` mantém as pastas no repo
 - Tabelas de dados: sempre HTML puro — nunca `st.dataframe()` neste projeto
 
 ---
 
-## Como Executar
+## Como Executar (local)
 
 ```bash
 # Streamlit usa o Conda env na raiz
@@ -276,5 +327,14 @@ notafiscal\python.exe -m streamlit run auditoria_fiscal\app.py --server.port 850
 
 Acesse: http://localhost:8501 (ou 8502)
 
-**Para testar:** faça upload do `NFe_ficticio.zip` na página "Upload NFe"
-e clique em "Iniciar Auditoria".
+**Para testar:** faça upload do `NFe_ficticio.zip` na página "Upload NFe" e clique em "Iniciar Auditoria".
+**Para testar DE PARA:** faça upload do `NFe_depara_teste.zip` → auditar → ir em "Conciliação DE PARA" → upload do `DEPARA.zip`.
+
+---
+
+## Deploy
+
+- **GitHub:** https://github.com/CaetanoCOC/FiscalX (branch `main`)
+- **Streamlit Cloud:** https://fiscalx.streamlit.app
+- Main file path no Streamlit Cloud: `auditoria_fiscal/app.py`
+- `packages.txt` na raiz garante instalação de `libxml2-dev` e `libxslt-dev` (necessários para `lxml` no Linux)
