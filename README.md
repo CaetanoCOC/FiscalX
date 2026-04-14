@@ -17,7 +17,9 @@ Cole o conteúdo abaixo direto no README.md do GitHub
 [![Plotly](https://img.shields.io/badge/Plotly-5.18%2B-3F4F75?style=for-the-badge&logo=plotly&logoColor=white)](https://plotly.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-00CDCD?style=for-the-badge)](LICENSE)
 
-[🚀 Demo Online](#-deploy) • [📦 Como Usar](#-como-executar) • [📋 Funcionalidades](#-funcionalidades)
+[![Acessar App](https://img.shields.io/badge/🚀_ACESSAR_APP_ONLINE-00CDCD?style=for-the-badge&logoColor=white)](https://fiscalx.streamlit.app)
+
+[📋 Funcionalidades](#-funcionalidades) • [📦 Como Executar](#-como-executar) • [👤 Autor](#-autor)
 
 </div>
 
@@ -182,7 +184,7 @@ Acesse: **http://localhost:8501**
 
 A aplicação está disponível online via **Streamlit Community Cloud**:
 
-> 🔗 **[fiscalx.streamlit.app](https://fiscalx.streamlit.app)** ← *atualize com o link real após o deploy*
+> 🔗 **[fiscalx.streamlit.app](https://fiscalx.streamlit.app)**
 
 ---
 
@@ -220,8 +222,9 @@ Este projeto foi desenvolvido para demonstrar como a **automação fiscal com Py
 **Bruno Caetano**
 Analista Fiscal | Python Developer
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/SEU_PERFIL)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/bcaetano-datascience/)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/CaetanoCOC)
+[![FiscalX App](https://img.shields.io/badge/🔗_App_Online-FF4B4B?style=for-the-badge)](https://fiscalx.streamlit.app)
 
 ---
 
