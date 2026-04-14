@@ -1,0 +1,27 @@
+{
+  "cst": {
+    "00": {"descricao": "Tributada integralmente", "tributado": true, "regime": "normal"},
+    "10": {"descricao": "Tributada e com cobrança do ICMS por substituição tributária", "tributado": true, "regime": "normal"},
+    "20": {"descricao": "Com redução de base de cálculo", "tributado": true, "regime": "normal"},
+    "30": {"descricao": "Isenta ou não tributada e com cobrança do ICMS por substituição tributária", "tributado": false, "regime": "normal"},
+    "40": {"descricao": "Isenta", "tributado": false, "regime": "normal"},
+    "41": {"descricao": "Não tributada", "tributado": false, "regime": "normal"},
+    "50": {"descricao": "Suspensão", "tributado": false, "regime": "normal"},
+    "51": {"descricao": "Diferimento", "tributado": false, "regime": "normal"},
+    "60": {"descricao": "ICMS cobrado anteriormente por substituição tributária", "tributado": false, "regime": "normal"},
+    "70": {"descricao": "Com redução de base de cálculo e cobrança do ICMS por substituição tributária", "tributado": true, "regime": "normal"},
+    "90": {"descricao": "Outros", "tributado": false, "regime": "normal"}
+  },
+  "csosn": {
+    "101": {"descricao": "Tributada pelo Simples Nacional com permissão de crédito", "tributado": true, "regime": "simples"},
+    "102": {"descricao": "Tributada pelo Simples Nacional sem permissão de crédito", "tributado": true, "regime": "simples"},
+    "103": {"descricao": "Isenção do ICMS no Simples Nacional para faixa de receita bruta", "tributado": false, "regime": "simples"},
+    "201": {"descricao": "Tributada pelo Simples Nacional com permissão de crédito e com cobrança do ICMS por ST", "tributado": true, "regime": "simples"},
+    "202": {"descricao": "Tributada pelo Simples Nacional sem permissão de crédito e com cobrança do ICMS por ST", "tributado": true, "regime": "simples"},
+    "203": {"descricao": "Isenção do ICMS no Simples Nacional para faixa de receita bruta e com cobrança do ICMS por ST", "tributado": false, "regime": "simples"},
+    "300": {"descricao": "Imune", "tributado": false, "regime": "simples"},
+    "400": {"descricao": "Não tributada pelo Simples Nacional", "tributado": false, "regime": "simples"},
+    "500": {"descricao": "ICMS cobrado anteriormente por ST ou por antecipação", "tributado": false, "regime": "simples"},
+    "900": {"descricao": "Outros (Simples Nacional)", "tributado": false, "regime": "simples"}
+  }
+}

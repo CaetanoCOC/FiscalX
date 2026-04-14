@@ -1,0 +1,46 @@
+{
+  "cst": {
+    "01": {"descricao": "Operação tributável com alíquota básica", "tributado": true, "credito": true, "regime": "nao_cumulativo"},
+    "02": {"descricao": "Operação tributável com alíquota diferenciada", "tributado": true, "credito": true, "regime": "nao_cumulativo"},
+    "03": {"descricao": "Operação tributável com alíquota por unidade de medida de produto", "tributado": true, "credito": true, "regime": "ambos"},
+    "04": {"descricao": "Operação tributável monofásica – revenda a alíquota zero", "tributado": false, "credito": false, "regime": "ambos"},
+    "05": {"descricao": "Operação tributável por substituição tributária", "tributado": false, "credito": false, "regime": "ambos"},
+    "06": {"descricao": "Operação tributável a alíquota zero", "tributado": false, "credito": false, "regime": "ambos"},
+    "07": {"descricao": "Operação isenta da contribuição", "tributado": false, "credito": false, "regime": "ambos"},
+    "08": {"descricao": "Operação sem incidência da contribuição", "tributado": false, "credito": false, "regime": "ambos"},
+    "09": {"descricao": "Operação com suspensão da contribuição", "tributado": false, "credito": false, "regime": "ambos"},
+    "49": {"descricao": "Outras operações de saída", "tributado": false, "credito": false, "regime": "ambos"},
+    "50": {"descricao": "Operação com direito a crédito – vinculada exclusivamente a receita tributada no mercado interno", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "51": {"descricao": "Operação com direito a crédito – vinculada exclusivamente a receita não tributada no mercado interno", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "52": {"descricao": "Operação com direito a crédito – vinculada exclusivamente a receita de exportação", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "53": {"descricao": "Operação com direito a crédito – vinculada a receitas tributadas e não-tributadas no mercado interno", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "54": {"descricao": "Operação com direito a crédito – vinculada a receitas tributadas no mercado interno e de exportação", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "55": {"descricao": "Operação com direito a crédito – vinculada a receitas não-tributadas no mercado interno e de exportação", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "56": {"descricao": "Operação com direito a crédito – vinculada a receitas tributadas e não-tributadas no mercado interno, e de exportação", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "60": {"descricao": "Crédito presumido – operação de aquisição vinculada exclusivamente a receita tributada no mercado interno", "tributado": false, "credito": true, "regime": "nao_cumulativo"},
+    "70": {"descricao": "Operação de aquisição sem direito a crédito", "tributado": false, "credito": false, "regime": "nao_cumulativo"},
+    "71": {"descricao": "Operação de aquisição com isenção", "tributado": false, "credito": false, "regime": "nao_cumulativo"},
+    "72": {"descricao": "Operação de aquisição com suspensão", "tributado": false, "credito": false, "regime": "nao_cumulativo"},
+    "73": {"descricao": "Operação de aquisição a alíquota zero", "tributado": false, "credito": false, "regime": "nao_cumulativo"},
+    "74": {"descricao": "Operação de aquisição sem incidência da contribuição", "tributado": false, "credito": false, "regime": "nao_cumulativo"},
+    "75": {"descricao": "Operação de aquisição por substituição tributária", "tributado": false, "credito": false, "regime": "nao_cumulativo"},
+    "98": {"descricao": "Outras operações de entrada", "tributado": false, "credito": false, "regime": "ambos"},
+    "99": {"descricao": "Outras operações", "tributado": false, "credito": false, "regime": "ambos"}
+  },
+  "aliquotas": {
+    "cumulativo": {
+      "pis": 0.65,
+      "cofins": 3.00,
+      "regime": "Lucro Presumido / Lucro Arbitrado",
+      "vigencia": "2002-12-30",
+      "legislacao": "Lei 9.718/1998 e Lei 10.833/2003"
+    },
+    "nao_cumulativo": {
+      "pis": 1.65,
+      "cofins": 7.60,
+      "regime": "Lucro Real",
+      "vigencia": "2003-02-01",
+      "legislacao": "Lei 10.637/2002 e Lei 10.833/2003"
+    }
+  }
+}

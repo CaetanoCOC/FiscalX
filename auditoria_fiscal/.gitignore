@@ -1,0 +1,26 @@
+# Dados sensíveis — nunca commitar XMLs reais de clientes
+data/uploads/*
+data/processados/*
+data/relatorios/*
+!data/uploads/.gitkeep
+!data/processados/.gitkeep
+!data/relatorios/.gitkeep
+
+# Ambiente virtual
+notafiscal/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Variáveis de ambiente
+.env
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDEs
+.vscode/
+.idea/
+*.swp

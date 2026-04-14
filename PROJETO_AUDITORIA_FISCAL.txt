@@ -1,0 +1,617 @@
+================================================================================
+  PROJETO: SISTEMA DE AUDITORIA FISCAL AUTOMATIZADA DE NFe
+  Instruções completas para Claude Code CLI
+================================================================================
+
+VISÃO GERAL
+-----------
+Construir um sistema profissional de auditoria fiscal em Python com interface
+Streamlit. O sistema lê XMLs de Notas Fiscais Eletrônicas (NFe), valida
+tributação, detecta inconsistências, apura impostos (ICMS, PIS, COFINS, IPI,
+ISS) e gera relatórios de auditoria exportáveis. As alíquotas devem ser
+atualizadas em tempo real via APIs e arquivos de configuração versionados.
+
+OBJETIVO FINAL
+--------------
+Portfólio profissional para vagas de Auditor Fiscal e Analista Fiscal.
+O sistema deve impressionar em uma entrevista técnica sendo demonstrado ao vivo.
+
+
+================================================================================
+ESTRUTURA DE PASTAS DO PROJETO
+================================================================================
+
+auditoria_fiscal/
+├── app.py                         # Entry point principal do Streamlit
+├── requirements.txt               # Dependências Python
+├── .env.example                   # Variáveis de ambiente de exemplo
+├── README.md                      # Documentação do projeto
+│
+├── config/
+│   ├── aliquotas_icms.json        # Tabela ICMS por estado (atualização manual/api)
+│   ├── aliquotas_iss.json         # Tabela ISS por município (código IBGE)
+│   ├── cfop_table.json            # Tabela completa de CFOPs com descrição e tipo
+│   ├── cst_icms.json              # Tabela CST/CSOSN de ICMS
+│   ├── cst_pis_cofins.json        # Tabela CST de PIS/COFINS
+│   └── ncm_aliquotas.json         # Tabela NCM x alíquotas IPI/II
+│
+├── core/
+│   ├── __init__.py
+│   ├── parser_nfe.py              # Leitura e parse de XML NFe (layout 4.0)
+│   ├── motor_validacao.py         # Engine de validação tributária
+│   ├── apuracao.py                # Apuração de impostos por período
+│   ├── detector_anomalias.py      # Identificação de inconsistências
+│   └── atualizador_aliquotas.py   # Busca alíquotas em tempo real
+│
+├── data/
+│   ├── uploads/                   # XMLs enviados pelo usuário
+│   ├── processados/               # XMLs já auditados
+│   └── relatorios/                # Relatórios gerados em Excel/PDF
+│
+├── pages/
+│   ├── 01_upload_nfe.py           # Tela de upload de XMLs
+│   ├── 02_dashboard_fiscal.py     # Dashboard com KPIs e gráficos
+│   ├── 03_auditoria_detalhada.py  # Tabela de inconsistências por nota
+│   ├── 04_apuracao_impostos.py    # Apuração ICMS / PIS-COFINS / ISS
+│   └── 05_relatorio_exportar.py   # Geração e download de relatórios
+│
+├── utils/
+│   ├── formatters.py              # Formatação de valores monetários e datas
+│   ├── validators.py              # Validações gerais (CNPJ, chave NFe, etc.)
+│   └── constants.py               # Constantes do sistema
+│
+└── tests/
+    ├── sample_nfe/                # XMLs de NFe de exemplo para testes
+    ├── test_parser.py
+    ├── test_validacao.py
+    └── test_apuracao.py
+
+
+================================================================================
+DEPENDÊNCIAS (requirements.txt)
+================================================================================
+
+streamlit>=1.35.0
+pandas>=2.0.0
+lxml>=5.0.0
+openpyxl>=3.1.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+plotly>=5.18.0
+reportlab>=4.1.0
+httpx>=0.27.0
+pydantic>=2.0.0
+streamlit-aggrid>=0.3.4
+
+
+================================================================================
+MÓDULO 1: PARSER DE NFe (core/parser_nfe.py)
+================================================================================
+
+OBJETIVO: Ler XMLs de NFe no layout 4.0 e retornar estrutura de dados padronizada.
+
+CAMPOS A EXTRAIR DO XML:
+
+  CABEÇALHO DA NOTA:
+  - chNFe          → Chave de acesso (44 dígitos)
+  - nNF            → Número da nota
+  - serie          → Série
+  - dhEmi          → Data de emissão
+  - natOp          → Natureza da operação
+  - tpNF           → Tipo (0=Entrada, 1=Saída)
+  - idDest         → Destino (1=Interna, 2=Interestadual, 3=Exterior)
+  - cMunFG         → Código do município do fato gerador (IBGE 7 dígitos)
+
+  EMITENTE (emit):
+  - CNPJ / CPF
+  - xNome          → Razão social
+  - UF             → Estado
+  - cMun           → Código município IBGE
+  - xMun           → Nome do município
+  - CRT            → Regime tributário (1=Simples, 2=Simples Excesso, 3=Normal)
+
+  DESTINATÁRIO (dest):
+  - CNPJ / CPF
+  - xNome
+  - UF
+  - cMun
+  - xMun
+  - indIEDest      → Indicador IE (1=Contribuinte, 2=Isento, 9=Não contribuinte)
+
+  POR ITEM (det/prod + det/imposto):
+  - nItem          → Número do item
+  - cProd          → Código do produto
+  - xProd          → Descrição
+  - NCM            → Código NCM (8 dígitos)
+  - CFOP           → Código fiscal (4 dígitos)
+  - uCom           → Unidade comercial
+  - qCom           → Quantidade
+  - vUnCom         → Valor unitário
+  - vProd          → Valor total do produto
+  - vDesc          → Desconto
+  - vFrete         → Frete rateado
+
+  ICMS POR ITEM:
+  - orig            → Origem da mercadoria
+  - CST / CSOSN    → Código de situação tributária
+  - modBC          → Modalidade base de cálculo
+  - vBC            → Base de cálculo
+  - pICMS          → Alíquota declarada
+  - vICMS          → Valor declarado
+  - pRedBC         → Redução de base (se houver)
+  - vICMSST        → Valor ST (se houver)
+  - vBCST          → Base de cálculo ST
+
+  PIS/COFINS POR ITEM:
+  - CST
+  - vBC
+  - pPIS / pCOFINS → Alíquotas declaradas
+  - vPIS / vCOFINS → Valores declarados
+
+  IPI POR ITEM (se houver):
+  - CST
+  - vBC
+  - pIPI
+  - vIPI
+
+  TOTAIS DA NOTA (ICMSTot):
+  - vBC, vICMS, vICMSDeson, vFCPST, vST
+  - vProd, vFrete, vSeg, vDesc, vII, vIPI
+  - vPIS, vCOFINS, vNF
+
+  FUNÇÃO PRINCIPAL:
+  def parse_xml(caminho_arquivo: str) -> dict
+  def parse_multiplos_xml(lista_caminhos: list) -> pd.DataFrame
+  def extrair_itens(nfe_dict: dict) -> pd.DataFrame
+
+  TRATAMENTO DE ERROS:
+  - XML malformado → retornar erro com nome do arquivo
+  - NFe cancelada (evento de cancelamento) → marcar flag "cancelada"
+  - Layout diferente de 4.0 → tentar compatibilizar ou alertar
+
+
+================================================================================
+MÓDULO 2: MOTOR DE VALIDAÇÃO (core/motor_validacao.py)
+================================================================================
+
+OBJETIVO: Cruzar os dados da NFe com as regras tributárias corretas e apontar
+divergências com grau de severidade.
+
+GRAUS DE SEVERIDADE:
+  - CRÍTICO    → Impacto financeiro alto, possível autuação
+  - ALERTA     → Inconsistência relevante que precisa de análise
+  - INFORMATIVO → Divergência pequena ou questão de conformidade
+
+VALIDAÇÕES A IMPLEMENTAR:
+
+  [V01] CFOP vs TIPO DE OPERAÇÃO
+  - CFOP 1xxx/2xxx = Entrada | 3xxx = Entrada exterior
+  - CFOP 5xxx/6xxx = Saída   | 7xxx = Saída exterior
+  - Cruzar com campo tpNF (0=Entrada, 1=Saída)
+  - Severidade: CRÍTICO se divergente
+
+  [V02] CFOP vs DESTINO (idDest)
+  - idDest=1 (Interna)       → CFOP deve ser 1xxx ou 5xxx
+  - idDest=2 (Interestadual) → CFOP deve ser 2xxx ou 6xxx
+  - idDest=3 (Exterior)      → CFOP deve ser 3xxx ou 7xxx
+  - Severidade: CRÍTICO
+
+  [V03] ALÍQUOTA ICMS DECLARADA vs ALÍQUOTA ESPERADA
+  - Buscar alíquota correta em config/aliquotas_icms.json por:
+      * UF emitente + UF destinatário (operações interestaduais)
+      * UF emitente (operações internas)
+  - Comparar com pICMS declarado na nota
+  - Tolerância: 0.01% (diferenças de arredondamento)
+  - Severidade: CRÍTICO se diferença > 1%, ALERTA se menor
+
+  [V04] BASE DE CÁLCULO ICMS
+  - Verificar se vBC está correto:
+      vBC = vProd + vFrete + vSeg - vDesc + vOutro (conforme modBC)
+  - Para modBC=3 (Pauta): não validar automaticamente
+  - Severidade: ALERTA se divergência > R$ 1,00
+
+  [V05] VALOR DO ICMS CALCULADO vs DECLARADO
+  - vICMS_calculado = vBC * pICMS / 100
+  - Comparar com vICMS declarado
+  - Severidade: CRÍTICO se divergência > R$ 1,00
+
+  [V06] CST vs REGIME TRIBUTÁRIO (CRT)
+  - CRT=1 (Simples Nacional) → deve usar CSOSN (1xx), não CST (0xx-9x)
+  - CRT=3 (Normal) → deve usar CST, não CSOSN
+  - Severidade: CRÍTICO
+
+  [V07] CFOP vs CST DE PIS/COFINS
+  - CFOPs de revenda (ex: 5102, 6102) + CST 50 = possível crédito indevido
+  - CST 01/02/03 = tributação com crédito, verificar se CFOP permite
+  - Carregar regras do arquivo config/cst_pis_cofins.json
+  - Severidade: ALERTA
+
+  [V08] ALÍQUOTA PIS/COFINS
+  - Regime Normal:
+      PIS:    1,65% (não-cumulativo) ou 0,65% (cumulativo)
+      COFINS: 7,60% (não-cumulativo) ou 3,00% (cumulativo)
+  - Simples Nacional: geralmente CST 07/08/09 (sem destaque)
+  - Severidade: ALERTA se alíquota diferente do esperado pelo regime
+
+  [V09] NCM vs ALÍQUOTA IPI
+  - Buscar alíquota IPI esperada na TIPI via config/ncm_aliquotas.json
+  - Comparar com pIPI declarado
+  - Severidade: ALERTA
+
+  [V10] DUPLICIDADE DE CHAVE DE ACESSO
+  - Verificar se chNFe aparece mais de uma vez no lote de XMLs
+  - Severidade: CRÍTICO
+
+  [V11] NOTA FORA DO PRAZO DE EMISSÃO
+  - dhEmi não pode ter mais de 24h de diferença da dhSaiEnt (data saída/entrada)
+  - Severidade: INFORMATIVO
+
+  [V12] SOMA DOS ITENS vs TOTAL DA NOTA
+  - Somar vProd de todos os itens e comparar com total declarado
+  - Tolerância de R$ 0,02 (arredondamento)
+  - Severidade: CRÍTICO se divergência > R$ 0,02
+
+  RETORNO DA FUNÇÃO:
+  def validar_nfe(nfe_df: pd.DataFrame) -> pd.DataFrame
+    → Retorna DataFrame com colunas:
+       chNFe, nNF, item, codigo_validacao, descricao, valor_declarado,
+       valor_esperado, divergencia, severidade
+
+
+================================================================================
+MÓDULO 3: ALÍQUOTAS EM TEMPO REAL (core/atualizador_aliquotas.py)
+================================================================================
+
+OBJETIVO: Garantir que o sistema use sempre as alíquotas vigentes.
+
+FONTES DE ATUALIZAÇÃO:
+
+  1. ICMS INTERESTADUAL (CONFAZ)
+     - Alíquotas padrão CONFAZ:
+         * 4%  → operações com bens importados (Resolução SF 13/2012)
+         * 7%  → Sul/Sudeste → Norte/Nordeste/Centro-Oeste + ES
+         * 12% → demais interestaduais
+     - Alíquotas internas por UF: variam de 17% a 22%
+     - Implementar tabela hardcoded + possibilidade de atualização manual
+     - Endpoint sugerido para verificação futura:
+         CONFAZ: https://www.confaz.fazenda.gov.br/legislacao/convenios
+
+  2. ISS POR MUNICÍPIO
+     - ISS varia de 2% (mínimo LC 116/2003) a 5% (máximo)
+     - Fonte: APIs municipais ou tabela por código IBGE
+     - Implementar função:
+         def buscar_iss_municipio(codigo_ibge: str) -> float
+     - Usar arquivo config/aliquotas_iss.json como base
+     - Cobrir os 100 maiores municípios obrigatoriamente
+     - Para municípios não mapeados: retornar 5% com flag "estimativa"
+
+  3. PIS/COFINS
+     - Alíquotas fixas por lei — atualizar apenas se houver mudança legislativa
+     - Manter controle de vigência com data_inicio e data_fim em JSON
+
+  4. TABELA TIPI (IPI)
+     - Atualização via arquivo JSON local baseado na TIPI vigente
+     - Função para buscar alíquota por NCM:
+         def buscar_aliquota_ipi(ncm: str) -> float
+     - Implementar cache em memória para performance
+
+  5. SIMPLES NACIONAL
+     - Faixas de receita bruta e alíquotas por anexo (I a V)
+     - Fonte: LC 123/2006 atualizada
+     - Tabela local com data de vigência
+
+  ESTRUTURA DO JSON DE ALÍQUOTAS ICMS (config/aliquotas_icms.json):
+  {
+    "vigencia": "2024-01-01",
+    "fonte": "CONFAZ",
+    "internas": {
+      "SP": 18.0,
+      "RJ": 22.0,
+      "MG": 18.0,
+      ... (todos os 27 estados + DF)
+    },
+    "interestaduais": {
+      "SP_TO_RJ": 12.0,
+      "SP_TO_BA": 7.0,
+      ... (matriz completa)
+    },
+    "importados": 4.0
+  }
+
+  ESTRUTURA DO JSON ISS (config/aliquotas_iss.json):
+  {
+    "vigencia": "2024-01-01",
+    "minimo_legal": 2.0,
+    "maximo_legal": 5.0,
+    "municipios": {
+      "3550308": {"municipio": "São Paulo", "uf": "SP", "aliquota": 5.0},
+      "3304557": {"municipio": "Rio de Janeiro", "uf": "RJ", "aliquota": 5.0},
+      "3106200": {"municipio": "Belo Horizonte", "uf": "MG", "aliquota": 5.0},
+      ... (100+ municípios)
+    }
+  }
+
+
+================================================================================
+MÓDULO 4: APURAÇÃO DE IMPOSTOS (core/apuracao.py)
+================================================================================
+
+OBJETIVO: Calcular débitos, créditos e saldo a recolher por período fiscal.
+
+  APURAÇÃO ICMS:
+  def apurar_icms(df_notas: pd.DataFrame, periodo: str) -> dict
+  - Filtrar notas pelo período (mês/ano)
+  - DÉBITOS: somar vICMS de notas de saída (CFOP 5xxx/6xxx)
+  - CRÉDITOS: somar vICMS de notas de entrada com direito a crédito
+      * CFOPs que geram crédito: 1xxx (compras para revenda/insumo)
+      * CFOPs que NÃO geram crédito: uso/consumo, ativo imobilizado (regra ICMS)
+  - Retornar: {debitos, creditos, saldo_devedor, saldo_credor}
+
+  APURAÇÃO PIS/COFINS (regime não-cumulativo):
+  def apurar_pis_cofins(df_notas: pd.DataFrame, periodo: str) -> dict
+  - DÉBITOS: saídas tributadas (CST 01, 02, 05, 06)
+  - CRÉDITOS: entradas com CST 50, 51, 55, 60, etc.
+  - Retornar separado: {pis: {debitos, creditos, saldo}, cofins: {...}}
+
+  APURAÇÃO ISS:
+  def apurar_iss(df_servicos: pd.DataFrame, periodo: str) -> dict
+  - Para NFSe (Nota de Serviço): calcular ISS sobre base de serviços
+  - Alíquota baseada no município do prestador
+  - Retenção na fonte: verificar se o tomador deve reter
+
+  RELATÓRIO DE APURAÇÃO:
+  - Tabela resumo por imposto
+  - Comparativo mês a mês (últimos 12 meses se disponível)
+  - Identificar meses com saldo credor acumulado
+
+
+================================================================================
+MÓDULO 5: DETECTOR DE ANOMALIAS (core/detector_anomalias.py)
+================================================================================
+
+OBJETIVO: Identificar padrões suspeitos que fogem do comportamento esperado.
+
+  [A01] NOTAS DE ALTO VALOR SEM HISTÓRICO
+  - Nota com valor > 3x a média do emitente no período
+  - Flag para análise manual
+
+  [A02] SEQUÊNCIA DE NOTAS COM SALTO NUMÉRICO
+  - Identificar gaps na numeração (ex: notas 100, 101, 105 — faltam 102/103/104)
+  - Pode indicar notas canceladas não declaradas
+
+  [A03] MESMO CNPJ EMITINDO EM MÚLTIPLOS ESTADOS
+  - Verificar se emitente tem IE em todos os estados onde emite
+  - Cruzar UF da nota com UF do CNPJ
+
+  [A04] CFOP DE DEVOLUÇÃO SEM NOTA ORIGINAL
+  - CFOPs 1201/1202/5201/5202 devem ter referência à nota devolvida
+  - Verificar campo refNFe no XML
+
+  [A05] PRODUTO COM NCM INCOMUM PARA O SEGMENTO
+  - Cruzar NCM com CNPJ CNAE (se disponível) para detectar incongruências
+
+  [A06] CONCENTRAÇÃO EXCESSIVA EM UM FORNECEDOR
+  - Fornecedor com > 40% do total de compras do período
+  - Possível operação simulada ou dependência tributária
+
+  [A07] NOTAS EMITIDAS FORA DO HORÁRIO COMERCIAL
+  - Emissão entre 22h-6h pode ser indicativo de fraude
+  - Apenas para operações com consumidores finais
+
+
+================================================================================
+INTERFACE STREAMLIT - PÁGINAS
+================================================================================
+
+--- PÁGINA PRINCIPAL (app.py) ---
+- Logo e título do sistema
+- Cards de resumo: Total de notas, Valor auditado, Inconsistências encontradas
+- Gráfico de pizza: distribuição por severidade (Crítico / Alerta / Info)
+- Gráfico de barras: inconsistências por tipo de validação
+- Status das alíquotas: data da última atualização por imposto
+- Botão "Atualizar Alíquotas" → dispara atualizador
+
+--- PÁGINA 1: UPLOAD DE NFe ---
+- Uploader de múltiplos XMLs (ou .zip com vários XMLs)
+- Tabela preview das notas carregadas (chave, emitente, valor, data)
+- Botão "Iniciar Auditoria"
+- Barra de progresso durante processamento
+- Filtros: período, UF, tipo de operação
+
+--- PÁGINA 2: DASHBOARD FISCAL ---
+- KPIs:
+    * Total de notas auditadas
+    * Valor total das operações (R$)
+    * Total de inconsistências
+    * Impacto financeiro estimado das divergências (R$)
+- Gráfico de linha: evolução mensal do valor auditado
+- Heatmap: inconsistências por UF de destino
+- Treemap: distribuição de valores por CFOP
+- Tabela de top 10 fornecedores por valor
+
+--- PÁGINA 3: AUDITORIA DETALHADA ---
+- Tabela interativa (AgGrid) com todas as inconsistências
+- Colunas: Nota, Item, Código Validação, Descrição, Valor Declarado,
+           Valor Esperado, Divergência (R$), Severidade
+- Filtros por severidade, tipo de validação, emitente
+- Cores: vermelho=Crítico, amarelo=Alerta, azul=Informativo
+- Clique na linha → abre modal com detalhe completo da nota
+- Exportar selecionados para Excel
+
+--- PÁGINA 4: APURAÇÃO DE IMPOSTOS ---
+- Seletor de período (mês/ano) e tipo de imposto
+- Cards: Débitos | Créditos | Saldo a Recolher / Credor
+- Tabela de apuração detalhada por nota
+- Gráfico comparativo: 12 meses de débito vs crédito
+- Botão "Exportar DARFPE" (simulação visual do documento)
+- Para ICMS: mostrar por UF (operações interestaduais)
+
+--- PÁGINA 5: RELATÓRIO E EXPORTAÇÃO ---
+- Formulário para dados do relatório:
+    * Empresa auditada
+    * CNPJ
+    * Período
+    * Responsável técnico
+    * Observações
+- Opções de exportação:
+    * Excel (.xlsx): aba por tipo de inconsistência + aba resumo
+    * PDF: relatório de auditoria formatado com logo
+    * CSV: dados brutos para importação em outros sistemas
+- Preview do relatório antes de exportar
+
+
+================================================================================
+REGRAS TRIBUTÁRIAS IMPORTANTES A IMPLEMENTAR
+================================================================================
+
+ICMS:
+  - Diferencial de alíquota (DIFAL): EC 87/2015
+      * Operações interestaduais para consumidor final não contribuinte
+      * Partilha DIFAL entre UF origem e destino (ver tabela por ano)
+  - FCP (Fundo de Combate à Pobreza): adicional de 2% em alguns estados
+      * MG, RJ, CE, MA, PI, AL, RN, SE, TO, AP, RO, AC, AM, PA, RR, MT, MS
+  - Substituição Tributária (ST): identificar por CFOP e NCM
+  - Simples Nacional: empresa no Simples não destaca ICMS — CST deve ser CSOSN
+
+PIS/COFINS:
+  - Regime Cumulativo (Lucro Presumido):   PIS 0,65% | COFINS 3,00%
+  - Regime Não-Cumulativo (Lucro Real):    PIS 1,65% | COFINS 7,60%
+  - Monofásico: alíquotas diferenciadas por NCM (combustíveis, farmácia, etc.)
+  - Substituição PIS/COFINS: identificar por CST 04/05/06
+
+IPI:
+  - Alíquotas pela TIPI (Tabela de Incidência do IPI)
+  - Estabelecimentos industriais e equiparados ao industrial
+  - IPI não incide para Simples Nacional em saídas (exceto importação)
+
+ISS:
+  - Alíquota mínima: 2% (LC 116/2003, art. 8-A)
+  - Alíquota máxima: 5%
+  - LOCAL DO SERVIÇO define qual município cobra:
+      * Regra geral: município do estabelecimento prestador
+      * Exceções (Lista Anexo LC 116): município onde o serviço é executado
+        (construção civil, eventos, etc.)
+  - Retenção na fonte: tomador retém quando for PJ e alíquota >= 2%
+
+
+================================================================================
+ARQUIVO DE CONFIGURAÇÃO config/cfop_table.json - ESTRUTURA
+================================================================================
+
+{
+  "1102": {
+    "descricao": "Compra para comercialização",
+    "tipo": "entrada",
+    "gera_credito_icms": true,
+    "gera_credito_pis_cofins": true,
+    "operacao": "compra_mercadoria"
+  },
+  "5102": {
+    "descricao": "Venda de mercadoria adquirida para comercialização",
+    "tipo": "saida",
+    "gera_debito_icms": true,
+    "gera_debito_pis_cofins": true,
+    "operacao": "venda_mercadoria"
+  },
+  ... (todos os CFOPs relevantes)
+}
+
+
+================================================================================
+DADOS DE EXEMPLO PARA TESTES (tests/sample_nfe/)
+================================================================================
+
+Criar 5 XMLs de NFe fictícios com os seguintes cenários:
+
+  nfe_01_ok.xml
+  → Nota correta, operação de venda interestadual SP→MG, ICMS 12%, PIS/COFINS corretos
+
+  nfe_02_aliquota_errada.xml
+  → ICMS declarado 18% em operação interestadual (correto seria 12%)
+  → Deve gerar validação V03 com severidade CRÍTICO
+
+  nfe_03_cfop_divergente.xml
+  → CFOP 5102 (saída) em nota de entrada (tpNF=0)
+  → Deve gerar validação V01 com severidade CRÍTICO
+
+  nfe_04_simples_nacional.xml
+  → Emitente CRT=1 (Simples) usando CST em vez de CSOSN
+  → Deve gerar validação V06 com severidade CRÍTICO
+
+  nfe_05_pis_cofins_errado.xml
+  → PIS declarado 0,65% para empresa no Lucro Real (deveria ser 1,65%)
+  → Deve gerar validação V08 com severidade ALERTA
+
+
+================================================================================
+BOAS PRÁTICAS DE CÓDIGO
+================================================================================
+
+- Usar type hints em todas as funções
+- Docstrings em português com exemplo de uso
+- Logging para rastrear processamentos
+- Tratamento de exceções com mensagens claras ao usuário
+- Cache do Streamlit (@st.cache_data) para não reprocessar XMLs já analisados
+- Sessão do Streamlit (st.session_state) para manter estado entre páginas
+- Nunca commitar XMLs reais de clientes (adicionar data/ no .gitignore)
+- Criar README.md explicando o projeto como se fosse apresentar em entrevista
+
+
+================================================================================
+README.md - ESTRUTURA SUGERIDA
+================================================================================
+
+# Sistema de Auditoria Fiscal Automatizada de NFe
+
+## O que é
+Sistema profissional para auditoria de Notas Fiscais Eletrônicas...
+
+## Tecnologias
+Python 3.11 · Streamlit · Pandas · lxml · Plotly · openpyxl
+
+## Funcionalidades
+- [ ] Upload e parse de XMLs NFe (layout 4.0)
+- [ ] 12 validações tributárias automatizadas
+- [ ] Alíquotas ICMS por estado (CONFAZ)
+- [ ] Alíquotas ISS por município (100+ municípios)
+- [ ] Apuração ICMS, PIS/COFINS, ISS por período
+- [ ] Detector de 7 anomalias fiscais
+- [ ] Exportação em Excel e PDF
+
+## Como executar
+pip install -r requirements.txt
+streamlit run app.py
+
+## Regras tributárias implementadas
+[descrever cada validação com a legislação de base]
+
+## Screenshots
+[inserir prints das telas principais]
+
+
+================================================================================
+ORDEM DE IMPLEMENTAÇÃO RECOMENDADA
+================================================================================
+
+FASE 1 — Base funcional (fazer primeiro):
+  1. Criar estrutura de pastas e requirements.txt
+  2. Criar XMLs de teste em tests/sample_nfe/
+  3. Implementar parser_nfe.py com os 5 XMLs de teste
+  4. Implementar validações V01, V02, V03, V05, V12 (as mais claras)
+  5. Tela de upload funcionando com tabela de resultado
+
+FASE 2 — Alíquotas e validações completas:
+  6. Popular todos os JSONs de configuração com dados reais
+  7. Implementar atualizador_aliquotas.py
+  8. Implementar todas as 12 validações
+  9. Dashboard com KPIs e gráficos
+
+FASE 3 — Apuração e relatórios:
+  10. Módulo de apuração ICMS e PIS/COFINS
+  11. Página de apuração com gráficos
+  12. Exportação Excel e PDF
+  13. README completo com screenshots
+
+================================================================================
+FIM DO DOCUMENTO
+================================================================================

@@ -1,0 +1,34 @@
+# Ambiente Conda / virtualenv — nunca commitar (centenas de MB)
+notafiscal/
+venv/
+.venv/
+env/
+
+# XMLs reais de clientes — dados sensíveis
+auditoria_fiscal/data/uploads/
+auditoria_fiscal/data/processados/
+auditoria_fiscal/data/relatorios/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
